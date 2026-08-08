@@ -1,0 +1,395 @@
+/* ==========================================================================
+   FeedForward — custom skin, v4
+
+   Two rules learned the hard way in this file, both worth reading before
+   editing it:
+
+   1. YOU CANNOT WRAP A STREAMLIT WIDGET IN INJECTED HTML. Opening a <div>
+      in one st.markdown() and closing it in another doesn't work — each
+      markdown block is rendered as its own isolated node and any tag you
+      leave hanging gets auto-closed immediately. The v3 splash screen did
+      exactly that and shipped an empty glass card floating next to a
+      completely unstyled login form. Anything that needs to CONTAIN a real
+      widget uses st.container(key="...") and is styled here via the
+      .st-key-<key> hook Streamlit generates. Everything styled as a raw
+      class below is pure presentation with no widgets inside it.
+
+   2. background-clip:text KILLS EMOJI. The gradient-shine trick renders
+      colour-bitmap emoji as blank boxes in Chromium, because the clip mask
+      doesn't understand them. So it's only ever applied to a text-only
+      <span>, never to an element that also holds an emoji character.
+   ========================================================================== */
+
+:root {
+  --ff-red: #E23744;
+  --ff-orange: #FF6B2C;
+  --ff-gold: #FFB100;
+  --ff-ink: #211013;
+  --ff-muted: #8A6F63;
+  --ff-card-bg: #FFFFFF;
+  --ff-page-bg: #FFF8F4;
+  --ff-border: #FFE1D0;
+  --ff-green: #1DB954;
+  --ff-shadow-sm: 0 4px 14px rgba(43, 24, 16, 0.06);
+  --ff-shadow-md: 0 10px 24px rgba(43, 24, 16, 0.12);
+}
+
+html, body, [class*="css"] {
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+#MainMenu, footer, header[data-testid="stHeader"] { visibility: hidden; height: 0; }
+.stApp { background: var(--ff-page-bg); }
+.block-container { padding-top: 1rem !important; padding-bottom: 3rem !important; max-width: 1100px; }
+
+/* ---------------------------------------------------------------------- */
+/* shared keyframes                                                       */
+/* ---------------------------------------------------------------------- */
+@keyframes ffBgShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes ffShine { to { background-position: 200% center; } }
+@keyframes ffFadeUp { from { opacity:0; transform:translateY(14px);} to { opacity:1; transform:translateY(0);} }
+@keyframes ffFadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes ffFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+@keyframes ffGlowPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,44,0.38), 0 8px 20px rgba(226,55,68,0.14);} 50%{box-shadow:0 0 0 9px rgba(255,107,44,0), 0 8px 20px rgba(226,55,68,0.14);} }
+@keyframes ffPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,44,0.45);} 50%{box-shadow:0 0 0 10px rgba(255,107,44,0);} }
+@keyframes ffShimmer { 0%{background-position:-400px 0;} 100%{background-position:400px 0;} }
+@keyframes ffDot { 0%,100%{opacity:.25;} 50%{opacity:1;} }
+
+/* Anyone who has asked their OS to stop moving things gets a still page.
+   Every animation here is decoration; none of it carries information. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* SPLASH / LOGIN SCREEN                                                  */
+/* ---------------------------------------------------------------------- */
+.st-key-ff_splash {
+  min-height: 88vh; display: flex; align-items: center; justify-content: center;
+  border-radius: 28px; padding: 48px 24px; margin-top: 6px;
+  background: linear-gradient(120deg, #E23744, #FF6B2C, #FFB100, #E23744);
+  background-size: 300% 300%;
+  animation: ffBgShift 10s ease infinite;
+  position: relative; overflow: hidden;
+}
+.st-key-ff_splash::before, .st-key-ff_splash::after { content:""; position:absolute; border-radius:50%; background: rgba(255,255,255,0.10); }
+.st-key-ff_splash::before { width:220px; height:220px; top:-60px; left:-60px; }
+.st-key-ff_splash::after { width:320px; height:320px; bottom:-100px; right:-80px; }
+.st-key-ff_splash [data-testid="stVerticalBlockBorderWrapper"],
+.st-key-ff_splash [data-testid="stVerticalBlock"] { max-width: 420px; margin: 0 auto; }
+
+.ff-splash-emoji { text-align:center; font-size:4.2rem; animation: ffFloat 3.5s ease-in-out infinite; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.25)); }
+.ff-splash-title {
+  text-align:center; font-size:2.6rem; font-weight:900; letter-spacing:-0.03em; margin:4px 0 6px 0;
+  background: linear-gradient(90deg, #fff, #FFE9D6, #fff); background-size:200% auto;
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation: ffShine 3.2s linear infinite, ffFadeUp 0.7s ease-out;
+}
+.ff-splash-tagline { text-align:center; color:rgba(255,255,255,0.92); font-size:1.02rem; margin-bottom:22px; animation: ffFadeUp 0.7s ease-out 0.1s both; }
+
+/* the glass login card — a REAL container (st.container(key="ff_splash_card")),
+   which is the only way it can actually contain the name box and the button */
+.st-key-ff_splash_card {
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.35); border-radius:22px;
+  padding: 20px !important;
+  animation: ffFadeUp 0.7s ease-out 0.2s both;
+}
+.st-key-ff_splash_card label, .st-key-ff_splash_card p { color: white !important; }
+.st-key-ff_splash .stTextInput input {
+  border-radius:14px !important; border:none !important; padding:0.7rem 1rem !important;
+  background: rgba(255,255,255,0.94) !important; color: var(--ff-ink) !important;
+}
+.st-key-ff_splash .stTextInput input::placeholder { color: #A98D80 !important; }
+.st-key-ff_splash .stButton > button[kind="primary"] {
+  width:100%; margin-top:12px;
+  background: linear-gradient(90deg, #211013, #3a1c15) !important;
+  animation: ffPulse 2.2s infinite;
+}
+.ff-splash-badges { display:flex; justify-content:center; gap:8px; margin-top:18px; flex-wrap:wrap; animation: ffFadeUp 0.7s ease-out 0.3s both; }
+.ff-splash-badges span { background: rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); border-radius:999px; padding:5px 12px; font-size:0.76rem; font-weight:700; color:white; }
+
+/* ---------------------------------------------------------------------- */
+/* SIDEBAR — the hamburger-menu nav (Streamlit auto-collapses this behind */
+/* a "»" toggle on narrow/mobile viewports — that IS our hamburger menu)  */
+/* ---------------------------------------------------------------------- */
+section[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #2A1410, #211013 55%);
+}
+section[data-testid="stSidebar"] * { color: #FBEDE6; }
+.ff-side-logo { font-size: 1.7rem; font-weight: 900; padding: 6px 4px 2px 4px; }
+.ff-side-logo span { background: linear-gradient(90deg,#FF6B2C,#FFB100); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.ff-side-user { font-size: 0.82rem; color: #D8B8AC; padding: 0 4px 14px 4px; border-bottom: 1px solid rgba(255,255,255,0.12); margin-bottom: 12px; }
+
+section[data-testid="stSidebar"] div[role="radiogroup"] { gap: 4px; }
+section[data-testid="stSidebar"] div[role="radiogroup"] label {
+  background: transparent;
+  border-radius: 12px;
+  padding: 10px 12px !important;
+  width: 100%;
+  transition: background 0.15s ease, transform 0.1s ease;
+  font-weight: 600;
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover { background: rgba(255,255,255,0.08); transform: translateX(2px); }
+section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+  background: linear-gradient(90deg, var(--ff-red), var(--ff-orange));
+  box-shadow: 0 4px 14px rgba(226,55,68,0.35);
+}
+section[data-testid="stSidebar"] div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p { font-size: 0.95rem; }
+section[data-testid="stSidebar"] div[role="radiogroup"] input { display: none; }
+/* hide the round radio-dot indicator — it lives in a sibling div right
+   next to the text container a few levels deep, and Streamlit's own
+   wrapper class names are auto-generated/unstable, so we find it
+   structurally instead: "whichever div directly contains the text
+   container also has the dot as its first child." */
+section[data-testid="stSidebar"] div[role="radiogroup"] label div:has(> div[data-testid="stMarkdownContainer"]) > div:first-child {
+  display: none;
+}
+
+/* the two live model stats pinned under the nav */
+.ff-side-foot { margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); display: flex; gap: 10px; }
+.ff-side-stat { flex: 1; background: rgba(255,255,255,0.06); border-radius: 12px; padding: 9px 10px; }
+.ff-side-stat b { display:block; font-size: 0.98rem; color: #FFD9A0; }
+.ff-side-stat span { font-size: 0.68rem; color: #C9A99C; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ---------------------------------------------------------------------- */
+/* top bar                                                                */
+/* ---------------------------------------------------------------------- */
+.ff-topbar { display:flex; align-items:center; justify-content:space-between; padding:2px 4px 14px 4px; }
+.ff-topbar .ff-greet { font-size:0.95rem; color:var(--ff-muted); font-weight:600; }
+.ff-topbar .ff-greet b { color:var(--ff-ink); }
+.ff-topbar-right { display:flex; align-items:center; gap:8px; }
+.ff-chip { font-size:0.72rem; font-weight:800; color:var(--ff-orange); background:#FFF1E8; border:1px solid var(--ff-border); padding:4px 10px; border-radius:999px; }
+.ff-topbar .ff-live { font-size:0.72rem; font-weight:800; color:var(--ff-green); background:#E9FBF0; border:1px solid #BEEED2; padding:4px 10px; border-radius:999px; }
+.ff-topbar .ff-live::before { content:"● "; animation: ffFadeIn 1.4s ease-in-out infinite alternate; }
+
+.ff-hero {
+  background: linear-gradient(120deg, var(--ff-red), var(--ff-orange) 60%, var(--ff-gold));
+  background-size:200% 200%; animation: ffBgShift 12s ease infinite;
+  border-radius:24px; padding:26px 30px; margin-bottom:20px; color:white;
+  box-shadow: 0 14px 34px rgba(226,55,68,0.28); position:relative; overflow:hidden;
+}
+.ff-hero h1 { margin:0 0 4px 0; font-size:1.9rem; font-weight:900; letter-spacing:-0.02em; color: white; }
+.ff-hero h1 .ff-shine-text {
+  background: linear-gradient(90deg, #fff, #FFE9D6, #fff); background-size:200% auto;
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  animation: ffShine 3.5s linear infinite;
+}
+.ff-hero p { margin:0; font-size:0.98rem; opacity:0.96; max-width:640px; }
+
+/* ---------------------------------------------------------------------- */
+/* cards                                                                  */
+/* ---------------------------------------------------------------------- */
+.ff-card-grid { display:flex; gap:14px; flex-wrap:wrap; margin:10px 0 18px 0; }
+.ff-card {
+  flex:1 1 200px; background:var(--ff-card-bg); border:1px solid var(--ff-border); border-radius:18px;
+  padding:16px 18px; box-shadow:var(--ff-shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease; animation: ffFadeUp 0.4s ease-out;
+}
+.ff-card:hover { transform: translateY(-3px); box-shadow: var(--ff-shadow-md); }
+.ff-card .ff-icon { font-size:1.4rem; }
+.ff-card .ff-label { font-size:0.8rem; font-weight:600; color:var(--ff-muted); text-transform:uppercase; letter-spacing:0.04em; margin-top:6px; }
+.ff-card .ff-value { font-size:1.7rem; font-weight:800; color:var(--ff-ink); line-height:1.15; }
+.ff-card .ff-sub { font-size:0.82rem; color:var(--ff-muted); margin-top:2px; }
+.ff-card.ff-accent { border-color: var(--ff-orange); background:#FFF3EE; }
+.ff-card.ff-warn { border-color:#E8A400; background:#FFF7E0; }
+.ff-card.ff-danger { border-color: var(--ff-red); background:#FFEDEF; }
+.ff-card.ff-good { border-color: var(--ff-green); background:#ECFBF1; }
+
+/* the one headline stat per screen. NO rotation anywhere on purpose — an
+   earlier version spun a conic-gradient ring behind the card, and even
+   though the text itself never moved, a constantly-cycling border reads as
+   "the whole thing is spinning". This is a static card whose SHADOW pulses:
+   same "this number matters" cue, nothing to misread. */
+.ff-glow-wrap {
+  border-radius: 22px;
+  padding: 22px 26px;
+  margin: 10px 0 20px 0;
+  background: var(--ff-card-bg);
+  border: 2px solid var(--ff-orange);
+  display: flex; align-items: center; gap: 18px;
+  animation: ffFadeUp 0.45s ease-out, ffGlowPulse 2.6s ease-in-out infinite;
+}
+.ff-glow-wrap .ff-glow-emoji { font-size: 2.6rem; }
+.ff-glow-wrap .ff-glow-value { font-size: 2.3rem; font-weight: 900; color: var(--ff-ink); line-height: 1; }
+.ff-glow-wrap .ff-glow-label { font-size: 0.85rem; font-weight: 700; color: var(--ff-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+.ff-glow-wrap .ff-glow-band { font-size: 0.86rem; color: var(--ff-muted); margin-top: 8px; }
+.ff-glow-wrap .ff-glow-band b { color: var(--ff-ink); }
+
+/* section headers */
+.ff-section-title { font-size:1.25rem; font-weight:800; color:var(--ff-ink); margin:14px 0 2px 0; animation: ffFadeUp 0.4s ease-out; }
+.ff-section-sub { color:var(--ff-muted); font-size:0.92rem; margin-bottom:14px; animation: ffFadeUp 0.4s ease-out; }
+
+/* the quick-calculator's working, shown rather than hidden */
+.ff-formula {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.84rem; color: var(--ff-muted);
+  background: #FFF3EA; border: 1px dashed var(--ff-border); border-radius: 12px;
+  padding: 10px 14px; margin: 4px 0 8px 0; overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------------- */
+/* buttons — Streamlit renders a real kind="primary"/"secondary" attribute */
+/* on the <button>, so we style off THAT instead of a div-wrapping trick   */
+/* (see the header of this file for why wrapping doesn't work).            */
+/* ---------------------------------------------------------------------- */
+.stButton > button {
+  border-radius: 999px !important; font-weight:700 !important; padding:0.55rem 1.6rem !important;
+  transition: transform 0.12s ease, background-position 0.6s ease, box-shadow 0.15s ease;
+}
+.stButton > button:active { transform: scale(0.97); }
+.stButton > button:focus-visible { outline: 3px solid rgba(226,55,68,0.45) !important; outline-offset: 2px; }
+
+.stButton > button[kind="primary"] {
+  border: none !important;
+  background: linear-gradient(90deg, var(--ff-red), var(--ff-orange), var(--ff-gold), var(--ff-orange), var(--ff-red)) !important;
+  background-size: 300% auto !important; color:white !important;
+  box-shadow: 0 6px 16px rgba(226,55,68,0.3);
+}
+.stButton > button[kind="primary"]:hover { background-position: right center !important; transform: translateY(-2px); }
+.stButton > button[kind="primary"]:disabled { opacity: 0.45; box-shadow: none; transform: none; }
+
+.stButton > button[kind="secondary"] {
+  background: white !important; color: var(--ff-ink) !important;
+  border: 1.5px solid var(--ff-border) !important; box-shadow: none !important;
+}
+.stButton > button[kind="secondary"]:hover { border-color: var(--ff-red) !important; color: var(--ff-red) !important; transform: translateY(-1px); }
+
+/* ---------------------------------------------------------------------- */
+/* streamlit widget skin — inputs, tabs, expanders, tables                 */
+/* ---------------------------------------------------------------------- */
+div[data-baseweb="select"] > div, .stNumberInput input, .stTextInput input {
+  border-radius: 12px !important; border-color: var(--ff-border) !important;
+}
+div[data-baseweb="select"] > div:focus-within { border-color: var(--ff-red) !important; }
+
+.stSlider [data-baseweb="slider"] div[role="slider"] { box-shadow: 0 2px 6px rgba(226,55,68,0.35); }
+
+.stTabs [data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid var(--ff-border); }
+.stTabs [data-baseweb="tab"] {
+  border-radius: 10px 10px 0 0; padding: 8px 16px !important;
+  font-weight: 700; color: var(--ff-muted);
+}
+.stTabs [aria-selected="true"] { background: #FFF1E8; color: var(--ff-red) !important; }
+
+details[data-testid="stExpander"], div[data-testid="stExpander"] > details {
+  border: 1px solid var(--ff-border) !important; border-radius: 14px !important;
+  background: white; box-shadow: var(--ff-shadow-sm);
+}
+div[data-testid="stExpander"] summary { font-weight: 700; }
+
+div[data-testid="stDataFrame"] { border: 1px solid var(--ff-border); border-radius: 14px; overflow: hidden; }
+
+div[data-testid="stAlert"] { border-radius: 14px; }
+
+/* charts sit in their own card so they don't float on the page background */
+div[data-testid="stPlotlyChart"] {
+  background: white; border: 1px solid var(--ff-border); border-radius: 18px;
+  padding: 8px; box-shadow: var(--ff-shadow-sm); overflow: hidden;
+}
+
+/* branded spinner */
+div[data-testid="stSpinner"] { animation: ffFadeIn 0.2s ease-out; }
+div[data-testid="stSpinner"] > div { border-top-color: var(--ff-red) !important; }
+div[data-testid="stSpinner"] p { font-weight:700; color:var(--ff-red); }
+
+/* skeleton shimmer, shown while the map's groupby runs */
+.ff-skeleton { height:220px; border-radius:18px; background: linear-gradient(90deg,#FFE1D0 25%,#FFF3EA 37%,#FFE1D0 63%); background-size:400px 100%; animation: ffShimmer 1.3s linear infinite; margin-bottom:14px; }
+
+/* ---------------------------------------------------------------------- */
+/* order tracker stepper (Order Food + Restaurant Hub)                    */
+/* ---------------------------------------------------------------------- */
+.ff-stepper { display:flex; align-items:flex-start; margin: 14px 0 6px 0; }
+.ff-step { flex:1; text-align:center; position:relative; }
+.ff-step .ff-step-dot {
+  width:30px; height:30px; border-radius:50%; margin:0 auto 6px auto;
+  display:flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:800;
+  background:#F1E4DD; color:#B79C90; border: 2px solid #F1E4DD;
+}
+.ff-step.ff-done .ff-step-dot { background: linear-gradient(135deg,var(--ff-red),var(--ff-orange)); color:white; border-color: transparent; }
+.ff-step.ff-current .ff-step-dot { background:white; color: var(--ff-red); border-color: var(--ff-red); animation: ffDot 1.3s ease-in-out infinite; }
+.ff-step .ff-step-label { font-size:0.72rem; font-weight:700; color:var(--ff-muted); }
+.ff-step.ff-done .ff-step-label, .ff-step.ff-current .ff-step-label { color: var(--ff-ink); }
+/* the connector line between dots. z-index:-1 would drop it behind the page
+   background entirely in some stacking contexts, so it sits at z-index:0 and
+   the dot is lifted above it instead. */
+.ff-step::before {
+  content:""; position:absolute; top:15px; left:-50%; width:100%; height:3px; background:#F1E4DD; z-index:0;
+}
+.ff-step .ff-step-dot { position:relative; z-index:1; }
+.ff-step:first-child::before { display:none; }
+.ff-step.ff-done::before { background: linear-gradient(90deg,var(--ff-orange),var(--ff-red)); }
+
+/* ---------------------------------------------------------------------- */
+/* mock menu / cart / order / restaurant cards                            */
+/* ---------------------------------------------------------------------- */
+.ff-menu-item {
+  display:flex; justify-content:space-between; align-items:center;
+  background:white; border:1px solid var(--ff-border); border-radius:14px;
+  padding:10px 14px; margin-bottom:8px; transition: box-shadow .15s ease;
+}
+.ff-menu-item:hover { box-shadow: 0 4px 12px rgba(43,24,16,0.08); }
+.ff-menu-item .ff-mi-name { font-weight:700; color:var(--ff-ink); }
+.ff-menu-item .ff-mi-price { color:var(--ff-muted); font-size:0.85rem; }
+
+.ff-order-card {
+  background:white; border:1px solid var(--ff-border); border-radius:16px; padding:14px 18px; margin-bottom:12px;
+  border-left: 4px solid var(--ff-orange);
+  animation: ffFadeUp 0.3s ease-out;
+}
+.ff-order-card .ff-oc-top { display:flex; justify-content:space-between; align-items:center; font-weight:800; color:var(--ff-ink); }
+.ff-order-card .ff-oc-sub { color:var(--ff-muted); font-size:0.82rem; margin-top:2px; }
+
+.ff-restaurant-card {
+  background:white; border:1px solid var(--ff-border); border-radius:18px; padding:16px; text-align:center;
+  margin-bottom: 8px;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  animation: ffFadeUp 0.4s ease-out;
+}
+.ff-restaurant-card:hover { transform: translateY(-4px); box-shadow: var(--ff-shadow-md); }
+.ff-restaurant-card.ff-r-selected { border-color: var(--ff-red); border-width: 2px; background:#FFF6F2; box-shadow: 0 8px 20px rgba(226,55,68,0.16); }
+.ff-restaurant-card .ff-r-emoji { font-size:2.2rem; }
+.ff-restaurant-card .ff-r-name { font-weight:800; margin-top:4px; color: var(--ff-ink); }
+.ff-restaurant-card .ff-r-meta { color:var(--ff-muted); font-size:0.8rem; }
+
+/* ---------------------------------------------------------------------- */
+/* fleet fairness rows                                                    */
+/* ---------------------------------------------------------------------- */
+.ff-lb-row {
+  display:flex; align-items:center; gap:10px; padding:10px 12px; margin-bottom:6px;
+  background:white; border:1px solid var(--ff-border); border-radius:12px;
+}
+.ff-lb-name { flex:1; font-weight:700; color:var(--ff-ink); }
+.ff-lb-mid { color: var(--ff-muted); font-size:0.84rem; }
+
+.ff-badge { font-size:0.76rem; font-weight:800; padding:4px 10px; border-radius:999px; border:1px solid transparent; }
+.ff-badge.ff-good { background:#ECFBF1; color:#0F7A38; border-color:#BEEED2; }
+.ff-badge.ff-warn { background:#FFF7E0; color:#8A6200; border-color:#F0DBA0; }
+.ff-badge.ff-danger { background:#FFEDEF; color:#B3261E; border-color:#F5C6CB; }
+
+/* footer */
+.ff-footer { text-align:center; color:var(--ff-muted); font-size:0.82rem; margin-top:28px; padding-top:14px; border-top:1px solid var(--ff-border); }
+
+/* ---------------------------------------------------------------------- */
+/* phone-friendly tweaks                                                  */
+/* ---------------------------------------------------------------------- */
+@media (max-width: 680px) {
+  .st-key-ff_splash { min-height:82vh; padding:32px 14px; border-radius:20px; }
+  .ff-splash-title { font-size:2rem; }
+  .ff-hero { padding:20px 18px; border-radius:18px; }
+  .ff-hero h1 { font-size:1.4rem; }
+  .ff-hero p { font-size:0.88rem; }
+  .ff-card { flex:1 1 100%; }
+  .ff-glow-wrap { flex-direction:column; text-align:center; padding:18px; }
+  .ff-glow-wrap .ff-glow-value { font-size: 2rem; }
+  .block-container { padding-left:0.8rem !important; padding-right:0.8rem !important; }
+  .stButton > button { width:100%; }
+  .ff-topbar { flex-direction:column; align-items:flex-start; gap:6px; }
+  .ff-step .ff-step-label { font-size:0.62rem; }
+  .ff-lb-row { flex-wrap: wrap; }
+}
