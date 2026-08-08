@@ -229,5 +229,5 @@ earlier version and all of them have a regression test now.
 
 ## Team / hackathon
 
-Built by Sagnik, Indrashish, Nilarko, Rudra, Adwitiya and Urbi.
+Built by Nooruddin ,Rohit, Kiran , Nabanit , Shweta and Ashmita.
 See [`TEAM_GUIDE.txt`](TEAM_GUIDE.txt) for who built what and why.
