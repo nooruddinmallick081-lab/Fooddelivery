@@ -3,14 +3,9 @@
   Read this before the hackathon. It explains EVERYTHING — every tool we
   used, what your own job was, and exactly what to say if a judge asks
   "how does this work?" or "what did YOU build?"
-
-  (This is project #2 — same team, same method as BeejBank. If you already
-  read BeejBank's TEAM_GUIDE.txt, a lot of Part 1 will feel familiar on
-  purpose — same tools, second project. Skim it anyway, the FeedForward
-  specifics matter.)
 ===============================================================================
 
-Team: Sagnik, Indrashish, Nilarko, Rudra, Adwitiya, Urbi
+Team: Pixel Pioneers- Nooruddin , Rohit , Nabanit, Kiran, Shweta , and Ashmita.
 
 
 -------------------------------------------------------------------------------
@@ -240,7 +235,7 @@ PART 2 — WHO BUILT WHAT (your section — know this one COLD)
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
-SAGNIK — Data
+Shweta — Data
 -------------------------------------------------------------------------------
 Files: data/food_delivery.csv, backend/data_utils.py
 
@@ -300,7 +295,7 @@ How to explain it to a judge:
   city."
 
 -------------------------------------------------------------------------------
-INDRASHISH — The Model (the "brain")
+Kiran — The Model (the "brain")
 -------------------------------------------------------------------------------
 Files: model/train_model.ipynb (+ weights.npz, meta.json, architecture.png)
 
@@ -368,7 +363,7 @@ How to explain it to a judge:
   single point, only on the distribution it was trained on."
 
 -------------------------------------------------------------------------------
-NILARKO — Backend / Inference Engine
+Nooruddin — Backend / Inference Engine
 -------------------------------------------------------------------------------
 Files: backend/inference.py, backend/quick_calc.py, backend/fairness.py,
        backend/marketplace.py
@@ -437,7 +432,7 @@ How to explain it to a judge:
   feature renders' and 'the feature works' are different claims."
 
 -------------------------------------------------------------------------------
-RUDRA — Frontend / The App Itself
+Rohit — Frontend / The App Itself
 -------------------------------------------------------------------------------
 Files: frontend/app.py, frontend/assets/style.css, .streamlit/config.toml
 
@@ -445,7 +440,7 @@ What you built:
   Every button, slider, screen and chart. Eight screens behind a sidebar
   menu (which Streamlit automatically collapses into a hamburger button on
   a phone — that's native behaviour, not something we hand-rolled):
-   1. Live Map — the landing page, Sagnik's zone logic
+   1. Live Map — the landing page,  Rohit zone logic
    2. Order Food — the customer side of the marketplace
    3. Restaurant Hub — the partner side, plus the fleet fairness panel
    4. ETA Predictor — the AI prediction with its confidence band and the
@@ -453,8 +448,8 @@ What you built:
    5. Quick Calculator — the honest non-AI baseline, showing its formula
    6. What-If Simulator — live sliders, real-time ETA curve with its
       uncertainty ribbon
-   7. Rush Hours — Sagnik's analytics, no model involved
-   8. Why This ETA? — Nilarko's explainability plus the model's real
+   7. Rush Hours — Rohit analytics, no model involved
+   8. Why This ETA? — Nooruddin explainability plus the model's real
       measured accuracy and an explicit list of where it stops working
 
   You also own the DESIGN SYSTEM: one red/orange palette in CSS variables,
@@ -503,7 +498,7 @@ How to explain it to a judge:
   every button, which is why we now have a test that clicks them for us."
 
 -------------------------------------------------------------------------------
-ADWITIYA — Presentation & Diagrams
+Rohit — Presentation & Diagrams
 -------------------------------------------------------------------------------
 Files: ppt/build_pptx.py, ppt/presentation.pptx, model/architecture.png
 
@@ -536,7 +531,7 @@ How to explain it to a judge:
   numbers."
 
 -------------------------------------------------------------------------------
-URBI — Docs, Packaging, Testing & Making It Portable
+Nabanit — Docs, Packaging, Testing & Making It Portable
 -------------------------------------------------------------------------------
 Files: README.md, TEAM_GUIDE.txt, run.bat / run.sh, requirements.txt,
        .gitignore, tests/
@@ -598,26 +593,26 @@ PART 3 — THE FULL STORY, START TO FINISH
    orders, with GPS coordinates, weather, traffic, and rider info. (Sagnik)
 2. We cleaned it, dropped 3,640 orders whose coordinates were a missing
    value written as zero, and found 22 real city names hidden inside the
-   rider ID column. (Sagnik)
+   rider ID column. (Nooruddin)
 3. We found and fixed a real GPS sign-error bug, and engineered smarter
    features — like encoding traffic level as an ordered number instead of
-   an unordered category. (Indrashish)
+   an unordered category. (Kiran)
 4. We trained a small neural network to predict delivery time, and
    measured how good it really is — overall, and broken down by traffic
-   level. (Indrashish)
+   level. (Nooruddin)
 5. We exported just the trained brain's numbers and rebuilt its math in
    plain NumPy, so the app never needs to carry TensorFlow around, then
    added input guarding, confidence bands and schema checking on top.
-   (Nilarko)
+   (Nabanit)
 6. We also built a transparent non-AI baseline calculator, an auditable
    rider-fairness score, and a dispatcher that assigns each order to the
-   least-loaded rider. (Nilarko)
+   least-loaded rider. (Ashmita)
 7. We built a real, clickable app with eight screens and a proper design
-   system around all of it. (Rudra)
+   system around all of it. (Shweta)
 8. We tested the whole thing — 158 automated checks including a headless
    run of the real app — and that's what found most of our bugs. (Urbi)
 9. We turned the model and our decisions into an auto-generated slide deck
-   that reads its numbers from the model's own metadata. (Adwitiya)
+   that reads its numbers from the model's own metadata. (Rohit)
 
 
 -------------------------------------------------------------------------------
