@@ -1,0 +1,22 @@
+# Everything above the runtime deps: retraining the model, running the tests,
+# and rebuilding the slide deck. NOT needed to run the app — see
+# requirements.txt for that, which is deliberately much lighter.
+-r requirements.txt
+
+# --- retraining the model (model/train_model.ipynb) ---
+tensorflow-cpu==2.21.0
+scikit-learn==1.9.0
+visualkeras==0.2.0
+kagglehub==1.0.2
+
+# --- notebook tooling ---
+jupytext==1.19.5
+jupyter==1.1.1
+
+# --- tests ---
+# The suite covers the whole backend plus a headless run of the real Streamlit
+# app (streamlit's own AppTest harness, which ships with streamlit itself).
+pytest==9.1.1
+
+# --- the pitch deck (ppt/build_pptx.py) ---
+python-pptx==1.0.2

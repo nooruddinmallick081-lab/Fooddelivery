@@ -1,0 +1,769 @@
+===============================================================================
+  FEEDFORWARD — TEAM GUIDE
+  Read this before the hackathon. It explains EVERYTHING — every tool we
+  used, what your own job was, and exactly what to say if a judge asks
+  "how does this work?" or "what did YOU build?"
+
+  (This is project #2 — same team, same method as BeejBank. If you already
+  read BeejBank's TEAM_GUIDE.txt, a lot of Part 1 will feel familiar on
+  purpose — same tools, second project. Skim it anyway, the FeedForward
+  specifics matter.)
+===============================================================================
+
+Team: Sagnik, Indrashish, Nilarko, Rudra, Adwitiya, Urbi
+
+
+-------------------------------------------------------------------------------
+PART 0 — WHAT IS FEEDFORWARD, IN ONE BREATH?
+-------------------------------------------------------------------------------
+
+"FeedForward" is a pun: food delivery ("feed") + the actual technical name
+of the AI model we used (a "feedforward network" — the simplest kind of
+neural network, information flows straight through, no loops).
+
+Most delivery apps optimize ONE number: how fast can we tell the customer
+their food will arrive. FeedForward predicts that number too — but it also
+watches out for the RIDER (are they being overloaded with too many stacked
+orders?) and the CITY (which zones consistently get worse service?).
+Three points of view, one app, instead of just the customer's countdown
+timer.
+
+Eight screens:
+  1. A live map of which delivery zones are slowest, by real city name
+  2. A working customer ordering flow (pick, cart, place, track)
+  3. A restaurant hub that dispatches to the least-loaded rider
+  4. An AI-predicted ETA with an honest confidence range
+  5. A no-AI "back of napkin" calculator, for comparison/trust
+  6. A live "what if" slider tool
+  7. Rush-hour analytics taken straight from the raw data
+  8. An explanation of WHY the AI predicted what it predicted
+
+
+-------------------------------------------------------------------------------
+PART 0.5 — READ THIS BIT: WHY THERE'S A "v2"
+-------------------------------------------------------------------------------
+
+Same story as BeejBank, and it's still the most interesting thing we have
+to say. Version 1 ran. It looked good. It produced numbers. Then we
+actually checked those numbers, and found EIGHT real bugs — including three
+that would have been visible live, on stage, in front of judges.
+
+Don't hide this section. "We found our own bugs and here's how" is worth
+far more than "it worked first try", because nothing ever does.
+
+  BUG 1 — THE TWO BIGGEST BUTTONS IN THE APP CRASHED.
+    The landing page has two big call-to-action buttons: "I'm hungry —
+    order food" and "I run a kitchen". Both of them raised an error
+    instead of navigating anywhere.
+      The cause is a genuinely useful Streamlit lesson: you cannot write
+    to a widget's own session_state key AFTER that widget has been
+    created. Our navigation menu is a radio button with the key
+    "ff_nav_radio"; by the time someone clicks a button on the page, that
+    radio already exists, so setting it threw StreamlitAPIException.
+      The fix is to park the request under a DIFFERENT key and apply it at
+    the top of the next run, before the radio gets built.
+
+  BUG 2 — THE FAIRNESS SCORE WAS FED A DICE ROLL.
+    This is the embarrassing one, and the one worth telling. The Rider
+    Fairness Score is the feature this entire project is pitched on. In
+    the restaurant flow, the rider assigned to an order was chosen with
+    random.choice(), and — worse — the number of orders that rider was
+    ALREADY carrying was also random.choice([0, 1, 2]).
+      So the fairness score was being computed from randomness, not from
+    anything happening in the app. It looked completely fine on screen,
+    which is exactly why it survived two versions.
+      The fix does two things: riders now carry their real, tracked
+    workload, and dispatch actively assigns each new order to the LEAST
+    loaded rider. That second part matters — balancing the load is the
+    actual intervention this project argues for. The score is just how you
+    notice you needed one.
+
+  BUG 3 — THE CUSTOMER'S CHOICES WERE THROWN AWAY.
+    The order screen has a "simulate conditions" panel: traffic, weather,
+    festival day. We collected all three and then silently discarded them.
+    The restaurant screen picked its own values, and the festival flag was
+    hardcoded to False on the way into the model — so the festival toggle
+    did literally nothing, despite festival days running about 19 minutes
+    longer in the real data. Conditions now travel with the order.
+
+  BUG 4 — THERE WAS A DELIVERY HOTSPOT IN THE ATLANTIC OCEAN.
+    3,640 rows of our dataset have their GPS coordinates recorded as
+    exactly 0.0 — that's not a place, it's a missing value someone wrote
+    as a zero. All 3,640 grouped into one map cell at (0, 0), which is a
+    spot in the Gulf of Guinea off the coast of West Africa, and it
+    rendered as the SECOND-BIGGEST delivery hotspot on our landing page.
+      Nobody spotted it for two versions because a big orange bubble on a
+    map looks exactly like a big orange bubble on a map. You have to check
+    where the dot actually is.
+
+  BUG 5 — THE LOGIN CARD WAS AN EMPTY BOX.
+    The frosted-glass card on the splash screen was built by opening a
+    <div> in one st.markdown() call and closing it in another, with the
+    name box and button in between. That doesn't work: Streamlit renders
+    every markdown block as its own isolated node and auto-closes any tag
+    you leave hanging. So we shipped an empty glass rectangle sitting next
+    to a completely unstyled login form. Anything that needs to CONTAIN a
+    real widget has to be a real st.container(key=...).
+
+  BUG 6 — THE EXPLANATION CHANGED EVERY TIME YOU REFRESHED.
+    Exactly the same bug BeejBank had, which is the annoying part — we'd
+    already learned this lesson once. Our "why this ETA" chart nudged each
+    input and measured how much the prediction moved, but it did the
+    nudging with RANDOM amounts. Two problems: the same order gave a
+    different explanation each refresh, and the 18 one-hot columns
+    (weather, city, order type, vehicle) were getting continuous random
+    jitter, pushing the model into states like "0.6 Foggy" that it has
+    never seen — so they scored high purely for being pushed somewhere
+    nonsensical.
+      Fixed the way BeejBank fixed it: shift each continuous input by
+    exactly one standard deviation, and for categories ask the proper
+    counterfactual instead — "what would this same order look like in
+    every OTHER kind of weather?"
+
+  BUG 7 — YOU COULD ASK IT ABOUT A 100 KM DELIVERY.
+    The distance box had no maximum. Every delivery in our training data
+    is between about 1.5 km and 21 km, so a 100 km question was five times
+    outside anything the model had ever seen — and a neural network never
+    says "I have no idea", it just answers confidently. Inputs are now
+    clamped to the model's own recorded training range, the sliders read
+    their limits from that same record, and the app SAYS when it clamped.
+
+  BUG 8 — RAW HTML PRINTED ON EVERY SCREEN, AND ONLY A BROWSER FOUND IT.
+    In the top-right corner of every single page, the app printed
+    `<div class="ff-live">LIVE MODEL</div></div></div>` inside a grey code
+    box. Not sometimes — always, whenever nobody had an order on the road.
+      Streamlit runs our markup through a Markdown parser even when you pass
+    unsafe_allow_html=True, and Markdown has a rule that catches people out:
+    a line indented four or more spaces is a CODE BLOCK. Our top bar was a
+    nicely indented f-string containing a conditional chip ("2 on the road").
+    With no live orders that conditional produced an empty string, leaving a
+    whitespace-only line — which ends the HTML block — and every indented
+    line after it got rendered as literal source code.
+      The part worth telling: OUR TESTS COULDN'T SEE THIS. The element was
+    present in the output, with the right content; it simply wasn't being
+    rendered as HTML. Every headless assertion passed. It took launching the
+    app and looking at it in an actual browser. That's the honest limit of
+    automated testing — a test can tell you the right things are on the page,
+    but not that the page LOOKS right. All raw markup now goes through one
+    helper that flattens it to a single line so the trap can't recur, and
+    there's a regression test asserting no page emits a multi-line HTML block.
+
+If someone asks "what was the hardest part?", this is the answer. Not
+writing the code — checking whether the code was telling the truth.
+
+
+-------------------------------------------------------------------------------
+PART 1 — EVERY TOOL WE USED (same toolbox as BeejBank, quick refresher)
+-------------------------------------------------------------------------------
+
+PYTHON — the language everything is written in.
+
+KAGGLE — the website we got our real dataset from. This time it's the
+  "Zomato Delivery Operations Analytics" dataset: 45,584 REAL delivery
+  orders with rider info, GPS coordinates, weather, traffic, and the
+  actual time each delivery took.
+
+PANDAS & NUMPY — Pandas loads/cleans/filters the big spreadsheet of data
+  (like Excel, but code-controlled). NumPy does fast math on lots of
+  numbers at once — this is what actually runs our trained "brain" later.
+
+JUPYTER NOTEBOOK (model/train_model.ipynb) — our lab journal. Mixes
+  writing + code + graphs, run piece by piece. Shows exactly how the model
+  was built, with our own notes explaining every decision — including a
+  real bug we found (see Indrashish's section below, it's a good story).
+
+TENSORFLOW / KERAS — builds and trains the NEURAL NETWORK (a simplified,
+  computer version of how brain cells pass signals). Ours looks like:
+
+    25 numbers in  →  [32 mini-calculators]  →  [16 mini-calculators]  →  1 number out
+    (distance,          each learns a pattern      each looks at the         (predicted
+     traffic, weather,   from all 25 inputs)        32 answers before it)     delivery time)
+     rider info...)
+
+  TRAINING = showing the network thousands of real orders (inputs → the
+  REAL delivery time that actually happened) and letting it adjust its
+  internal numbers (weights) until its guesses get close to reality.
+
+THE "NUMPY-ONLY" TRICK — TensorFlow is 500MB+, way too heavy for a
+  portable app. So after training, we save only the WEIGHTS (a small
+  file, weights.npz) and rewrite the network's math by hand in NumPy:
+  multiply, add, zero-out negatives (ReLU), repeat twice more. That's the
+  entire trained brain, replayed in about 9 lines, zero TensorFlow needed
+  when the app actually runs.
+
+STREAMLIT — turns a Python script into a real clickable website (buttons,
+  sliders, tabs, charts) with no HTML/CSS/JavaScript needed.
+
+CSS (frontend/assets/style.css) — Streamlit's default widgets look
+  unmistakably like Streamlit. Our own stylesheet — one red/orange food-
+  delivery palette, custom cards, the order tracker, the animated splash
+  screen, mobile tweaks — is what makes it look like a product instead of
+  a homework submission. It's all in ONE file.
+
+PLOTLY — the charting library. Draws our line graphs (what-if simulator),
+  bar charts (explainability, rush hours) and the delivery hotspot map.
+
+PYTEST (the tests/ folder) — a testing tool. We have 158 automated checks
+  that run in about 27 seconds and verify the whole app still works. This
+  is the single biggest difference between a demo and a product: we can
+  change something and know within half a minute whether we broke
+  anything. Several tests are labelled "REGRESSION" because they exist
+  specifically to make sure the seven bugs in Part 0.5 can never come back.
+
+BACKEND vs FRONTEND — Frontend (frontend/app.py) is what the user clicks.
+  Backend (backend/ folder) is the engine room doing the real math. The
+  frontend never calculates anything itself — it just calls backend
+  functions and shows the result. That separation is why six people could
+  build different pieces at once, and it's why the entire engine can be
+  tested without opening a browser.
+
+VISUALKERAS — auto-draws a picture of the trained neural network's
+  layers, straight from the real model (used for the architecture slide).
+
+PYTHON-PPTX — builds an actual PowerPoint file using Python code instead
+  of clicking around in PowerPoint by hand. Rerun the script, slides
+  regenerate.
+
+GIT & GITHUB — Git saves checkpoints of our code. GitHub hosts them online
+  — this is what judges actually look at.
+
+VENV & requirements.txt — a clean, separate toolbox of Python packages
+  just for this project, so nothing clashes with other software on the
+  computer. requirements.txt is the exact shopping list.
+
+run.bat — double-click this on Windows and everything sets itself up
+  automatically. No typing commands.
+
+
+-------------------------------------------------------------------------------
+PART 2 — WHO BUILT WHAT (your section — know this one COLD)
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+SAGNIK — Data
+-------------------------------------------------------------------------------
+Files: data/food_delivery.csv, backend/data_utils.py
+
+What you built:
+  You own the raw material. You sourced the real Zomato dataset (45,584
+  real delivery orders) and built the logic behind the Delay Hotspot Map.
+  Since this dataset already has real GPS coordinates for every restaurant
+  and delivery point (unlike BeejBank, which needed a separate map-shape
+  file), your job was different this time: group thousands of individual
+  delivery points into readable map "zones" (a grid, roughly 55km per
+  cell) and compute the average delivery time per zone — so the map shows
+  real patterns instead of thousands of overlapping dots nobody can read.
+
+  In v2 you added the whole analytics layer the app now leans on: per-city
+  performance, the rush-hour profile, the "what does each condition
+  actually cost you" tables, and the busiest-riders view.
+
+The obstacles you got around:
+  1. A raw grid with every cell shown would include zones with only 1-2
+     orders — not a real pattern, just noise. You added a minimum-order-
+     count filter (15+ orders per zone) so the map only shows patterns
+     backed by enough real data to trust.
+
+  2. THE BIG ONE (v2): NULL ISLAND. 3,640 rows have coordinates recorded
+     as exactly 0.0 — a missing value written as a zero, not a location.
+     Taking abs() of the coordinates (which we have to do, see
+     Indrashish's bug) doesn't help, because zero is already positive. So
+     all 3,640 landed in one cell at (0, 0) — the Gulf of Guinea, off
+     West Africa — and showed up as the second-biggest hotspot on our
+     landing page. You now drop rows without usable coordinates from
+     anything geographic. There's a test that asserts no hotspot ever
+     appears at the origin, and another that asserts every hotspot lands
+     inside India's bounding box.
+
+  3. THE FIND (v2): THE CITY CODES. You noticed the rider IDs looked oddly
+     structured — "JAPRES09DEL03" — and worked out the bit before "RES" is
+     a real city code. You then CHECKED it properly rather than assuming:
+     took the median coordinate of every code and confirmed it landed on
+     the city you'd guessed. JAP came out at 26.91N 75.79E, which is
+     Jaipur, and all 22 codes checked out the same way. That's why the map
+     now names real Indian cities instead of labelling zones "grid cell
+     26.9, 75.8" — and it needed no data we didn't already have.
+
+  4. You also made load_delivery_data() hand out a COPY each time. Eight
+     screens read the same table; if one of them added a column it used to
+     leak into all the others. Copying costs milliseconds, that bug costs
+     hours. And you matched the loader's missing-value fills to the
+     training notebook's exactly — a test caught that rider age was being
+     left null here while training filled it with the median.
+
+How to explain it to a judge:
+  "I turned thousands of raw GPS points into a readable map, and found two
+  things in the data nobody had spotted: 3,640 orders recorded at
+  coordinates (0,0) that were rendering as a giant fake hotspot in the
+  Atlantic, and real city names hidden inside the rider ID column, which I
+  verified by checking each code's median coordinate landed on the right
+  city."
+
+-------------------------------------------------------------------------------
+INDRASHISH — The Model (the "brain")
+-------------------------------------------------------------------------------
+Files: model/train_model.ipynb (+ weights.npz, meta.json, architecture.png)
+
+What you built:
+  You trained the neural network that predicts delivery time. Your
+  notebook loads the data, engineers features, builds a small 3-layer
+  network (25 → 32 → 16 → 1), trains it, checks accuracy, and saves the
+  result.
+
+  The measured numbers, on 6,838 held-out orders the model never saw:
+    - typical error (MAE): 3.59 minutes
+    - median error: 11.7%
+    - R²: 0.766
+    - within 10 minutes: 97.1% of the time
+
+The obstacle you got around (THIS ONE'S A GREAT STORY, use it):
+  Distance between the restaurant and the delivery address should
+  obviously affect delivery time, right? You computed it properly using
+  the haversine formula (real great-circle distance from GPS coordinates)
+  and got... basically ZERO correlation with actual delivery time.
+  Suspicious — that's not how the real world works.
+
+  You dug in and found some of the dataset's latitude/longitude values
+  were NEGATIVE in a way that doesn't match real geography (India doesn't
+  have delivery zones in the southern hemisphere!) — a quirk of this
+  dataset being semi-synthetic. Once you took the absolute value of every
+  coordinate before calculating distance, the correlation jumped to a
+  solid 0.32 — a real, trustworthy signal. If you'd shipped the first
+  (wrong) result, you'd have wrongly concluded "distance doesn't matter"
+  and thrown away one of the most obviously important features in the
+  whole dataset.
+
+  You also noticed traffic level (Low/Medium/High/Jam) has a natural
+  order, so instead of one-hot encoding it like the other categories, you
+  encoded it as a single 0-3 number — letting the network learn "more
+  traffic = slower" as one smooth relationship instead of 4 disconnected
+  labels.
+
+The v2 addition — MEASURING THE MODEL PROPERLY:
+  v1 shipped a single number: "validation MAE = 3.59 minutes". True, but
+  not enough to act on. You now export, and the app now shows:
+    - accuracy broken down BY TRAFFIC LEVEL (we're within 3.1 min in Low
+      traffic and 4.0 min in a Jam — quoting one blended number quietly
+      flatters us)
+    - the model's residual spread, which is what gives every ETA in the
+      app a real confidence range instead of a falsely precise number
+    - the exact input range the model was trained on, which is what the
+      app clamps against and what the sliders read their limits from
+
+  A useful thing you learned while validating: THE MODEL IS MONOTONIC ON
+  AVERAGE, NOT AT EVERY POINT. Averaged across the real data, more traffic
+  always means more time (22.4 → 27.0 → 29.2 → 30.0 minutes). But at one
+  specific hand-picked input the ordering can invert, because nothing
+  constrains a neural network to be monotonic pointwise and a single input
+  can sit in a sparse corner of the data. Our first test asserted the
+  pointwise version and failed — for a reason that wasn't a bug. The test
+  now measures it the right way, as an average over real rows.
+
+How to explain it to a judge:
+  "I found and fixed a real data-quality bug — distance appeared to not
+  matter at all until I realized some GPS coordinates had a sign error.
+  And when I went to prove the model behaved sensibly, I learned you have
+  to check that as an average over real data, not at one convenient
+  example — a neural network isn't guaranteed to be well-behaved at every
+  single point, only on the distribution it was trained on."
+
+-------------------------------------------------------------------------------
+NILARKO — Backend / Inference Engine
+-------------------------------------------------------------------------------
+Files: backend/inference.py, backend/quick_calc.py, backend/fairness.py,
+       backend/marketplace.py
+
+What you built:
+  Four things:
+  1. inference.py — replays the trained network's math in pure NumPy (no
+     TensorFlow needed to run the app), same trick as BeejBank.
+  2. quick_calc.py — the NON-ai baseline: assumed road speed per traffic
+     level + a weather slowdown multiplier + however long the kitchen
+     said prep takes. Fully transparent formula, nothing hidden — it now
+     prints its own working on screen.
+  3. fairness.py — the Rider Fairness Score. A simple, auditable weighted
+     formula (NOT another AI model on purpose) that flags when a rider is
+     stacked with too many concurrent orders, has a poorly maintained
+     vehicle, is going a long distance, in heavy traffic.
+  4. marketplace.py — the mock two-sided ordering flow, and the dispatch
+     logic that decides which rider gets the next order.
+
+  In v2 you added four things to inference.py that a demo doesn't need and
+  a product absolutely does:
+  1. INPUT GUARDING. The model records the exact range of every input it
+     was trained on. Anything outside gets clamped, and the app SAYS it
+     clamped. A model that admits "that's outside what I know" is worth
+     more than one that guesses confidently.
+  2. CONFIDENCE BANDS. Every ETA carries a range built from the model's
+     own measured error. A forecast without an error bar is a bit of a lie.
+  3. SCHEMA CHECKING. If someone retrains with different features and the
+     weights and metadata drift apart, the app fails loudly at startup
+     instead of predicting plausible-looking garbage forever.
+  4. BATCHING. The what-if simulator was running 30-40 separate
+     predictions in a Python loop every time someone dragged a slider. All
+     of them now go through in a single matrix multiply. Same answer —
+     there's a test proving it matches the loop exactly — just fast enough
+     to feel live.
+
+The obstacles you got around:
+  1. You made a deliberate design choice, not just a technical fix: the
+     fairness score is intentionally simple math, not a second neural
+     network. A safety/fairness flag that a rider coordinator can't audit
+     or explain in one sentence isn't trustworthy, no matter how accurate
+     it might be. In v2 you went further and made it show its WORKING —
+     which factor contributed how much. A score of 60 built from "four
+     stacked orders" needs a completely different response than a 60 built
+     from "one order, terrible bike, long haul in a jam". The first is a
+     dispatch problem, the second is a maintenance one, and a single
+     number hides that.
+
+  2. THE DICE-ROLL BUG (v2) — see Part 0.5, Bug 2. Your own module was the
+     one feeding the fairness score random numbers. The fix wasn't just
+     "use the real load": you added a dispatcher that hands each new order
+     to the LEAST loaded rider, because balancing the load is the actual
+     intervention the project argues for.
+
+  3. THE EXPLAINABILITY BUG (v2) — see Part 0.5, Bug 6. The annoying part
+     is that BeejBank had already taught us this lesson and we made the
+     same mistake again. Categories have to be treated as categories.
+
+How to explain it to a judge:
+  "I built the engine room — replaying the trained AI without needing
+  TensorFlow, a transparent non-AI baseline to compare it against, the
+  rider fairness score, and the dispatcher. The bug I'd highlight is that
+  my own fairness score was being fed random numbers instead of the
+  rider's real workload. It looked completely correct on screen, which is
+  why it survived two versions — and it's a good reminder that 'the
+  feature renders' and 'the feature works' are different claims."
+
+-------------------------------------------------------------------------------
+RUDRA — Frontend / The App Itself
+-------------------------------------------------------------------------------
+Files: frontend/app.py, frontend/assets/style.css, .streamlit/config.toml
+
+What you built:
+  Every button, slider, screen and chart. Eight screens behind a sidebar
+  menu (which Streamlit automatically collapses into a hamburger button on
+  a phone — that's native behaviour, not something we hand-rolled):
+   1. Live Map — the landing page, Sagnik's zone logic
+   2. Order Food — the customer side of the marketplace
+   3. Restaurant Hub — the partner side, plus the fleet fairness panel
+   4. ETA Predictor — the AI prediction with its confidence band and the
+      Rider Fairness Score shown right alongside it
+   5. Quick Calculator — the honest non-AI baseline, showing its formula
+   6. What-If Simulator — live sliders, real-time ETA curve with its
+      uncertainty ribbon
+   7. Rush Hours — Sagnik's analytics, no model involved
+   8. Why This ETA? — Nilarko's explainability plus the model's real
+      measured accuracy and an explicit list of where it stops working
+
+  You also own the DESIGN SYSTEM: one red/orange palette in CSS variables,
+  custom stat cards that can be tinted by meaning, the animated splash
+  screen, the order-tracker stepper, one shared chart style applied to
+  every Plotly figure, and a layout that survives a phone screen.
+
+  Same rule as BeejBank: your file never does the math itself, it just
+  calls backend functions and displays what comes back.
+
+The obstacles you got around:
+  1. A UX decision: instead of hiding the Rider Fairness Score in its own
+     separate screen where people might skip it, you bundled it right into
+     the main ETA results — so anyone testing an ETA automatically sees
+     the fairness flag too, not as an afterthought.
+
+  2. THE CRASHING BUTTONS (v2) — see Part 0.5, Bug 1. Both landing-page
+     CTAs threw an exception. The lesson is worth stating cleanly: in
+     Streamlit you cannot modify a widget's own session_state key after
+     that widget has been created. Queue the change under a different key
+     and apply it at the top of the next run.
+
+  3. THE EMPTY GLASS CARD (v2) — see Part 0.5, Bug 5. You cannot wrap a
+     Streamlit widget in raw injected HTML, because each markdown block is
+     rendered as its own isolated node with hanging tags auto-closed.
+     Anything that needs to CONTAIN a widget has to be a real
+     st.container(key=...), styled via the .st-key-<key> hook Streamlit
+     generates. Both rules are now written at the top of style.css so
+     nobody re-learns them the hard way.
+
+  4. SLIDER LIMITS READ FROM THE MODEL. Every distance control now takes
+     its min and max from the model's own record of what it was trained
+     on, rather than a number typed in by hand. A retrain can't leave the
+     UI offering values the model can't answer. Same fix BeejBank made.
+
+  5. You also added prefers-reduced-motion support — if someone's OS says
+     "stop moving things", every animation switches off. None of our
+     animation carries information, so nothing is lost.
+
+How to explain it to a judge:
+  "I built the interface and the design system. The bug I'd point at is
+  that the two biggest buttons on our landing page were throwing an
+  exception instead of navigating — I'd been writing to the navigation
+  widget's own state key after the widget existed, which Streamlit
+  forbids. It's the kind of thing you only catch by actually clicking
+  every button, which is why we now have a test that clicks them for us."
+
+-------------------------------------------------------------------------------
+ADWITIYA — Presentation & Diagrams
+-------------------------------------------------------------------------------
+Files: ppt/build_pptx.py, ppt/presentation.pptx, model/architecture.png
+
+What you built:
+  The pitch deck, generated entirely by code (python-pptx): Title,
+  Motivation, Data Flow, Novelty Features, Model Architecture (with the
+  auto-generated network diagram), Thank You. The data-flow diagram
+  (boxes + arrows) is also drawn by code, not hand-placed in PowerPoint.
+
+The obstacles you got around:
+  1. Reused the exact sizing fix from the BeejBank deck build (auto-
+     detecting the generated diagram's width-to-height ratio in code so it
+     always centers and fits the slide) — this time applied to a totally
+     different model shape without needing to manually re-measure
+     anything. That's the actual point of writing it as reusable code
+     instead of hand-placing an image once: the second time was nearly
+     free.
+
+  2. (v2) The deck now reads its numbers — accuracy, dataset size, feature
+     count — straight out of model/meta.json at build time, the same
+     pattern proven on BeejBank. So the slides can't drift out of date
+     when the model is retrained; rerun the script and they're correct
+     again automatically.
+
+How to explain it to a judge:
+  "Because I built the first deck as a script instead of by hand, building
+  this second one was mostly just swapping content — the hard layout math
+  was already solved and reusable. And the slides read the model's real
+  metrics from its metadata file, so they can't quietly show last week's
+  numbers."
+
+-------------------------------------------------------------------------------
+URBI — Docs, Packaging, Testing & Making It Portable
+-------------------------------------------------------------------------------
+Files: README.md, TEAM_GUIDE.txt, run.bat / run.sh, requirements.txt,
+       .gitignore, tests/
+
+What you built:
+  Everything that makes this usable by someone who ISN'T us — the README,
+  this guide, .gitignore, and the run.bat one-click launcher.
+
+  You kept requirements split: requirements.txt has only the four small
+  packages the app needs to RUN (streamlit, pandas, numpy, plotly), while
+  requirements-dev.txt adds the heavy things only needed to retrain the
+  model or run the tests. That split is why the portable build stays light.
+
+  THE TEST SUITE (v2, tests/). 158 automated checks that run in about 27
+  seconds:
+    - every backend module, tested without opening a browser
+    - a headless run of the REAL Streamlit app using Streamlit's own
+      AppTest harness — it boots the app, clicks through all eight
+      screens, drags every slider to both extremes, and plays the entire
+      order → accept → dispatch → delivered flow, asserting nothing throws
+    - regression tests for the bugs in Part 0.5, labelled REGRESSION in the
+      code so it's obvious why they exist
+
+The obstacles you got around:
+  1. On the first project, we found Streamlit shows a blocking "enter your
+     email" prompt on a totally fresh machine, which would freeze run.bat
+     waiting for typed input nobody would know to give. You already knew
+     the fix from BeejBank (pre-writing a small settings file before
+     launch) and applied it here immediately.
+
+  2. (v2) Writing the tests is what FOUND most of Part 0.5. The crashing
+     buttons, the discarded conditions, the null-island hotspot — none of
+     those were found by staring at code, they were found by writing a
+     test that said "click this and assert nothing throws" and watching it
+     fail. That's the argument for the test suite in one sentence.
+
+  3. (v2) Two of our first tests failed for reasons that WEREN'T bugs —
+     they asserted the model was monotonic at one specific input, and that
+     the napkin formula and the neural net always land close together.
+     Both turned out to be false claims about a correct system. Fixing a
+     test that's wrong is a real skill: the honest move was to measure the
+     property the way it's actually true (as an average over real data)
+     and document the divergence rather than paper over it.
+
+How to explain it to a judge:
+  "I made sure this runs cleanly on a stranger's laptop, unzip and
+  double-click. I also wrote the 158-test suite that boots the real app
+  and clicks through every screen — and that suite is what found most of
+  the bugs we fixed. Two of my own tests also failed for reasons that
+  weren't bugs, which taught me that a failing test means 'one of these
+  two things is wrong', not automatically 'the code is wrong'."
+
+
+-------------------------------------------------------------------------------
+PART 3 — THE FULL STORY, START TO FINISH
+-------------------------------------------------------------------------------
+
+1. We took a REAL dataset from Kaggle — 45,584 real Zomato delivery
+   orders, with GPS coordinates, weather, traffic, and rider info. (Sagnik)
+2. We cleaned it, dropped 3,640 orders whose coordinates were a missing
+   value written as zero, and found 22 real city names hidden inside the
+   rider ID column. (Sagnik)
+3. We found and fixed a real GPS sign-error bug, and engineered smarter
+   features — like encoding traffic level as an ordered number instead of
+   an unordered category. (Indrashish)
+4. We trained a small neural network to predict delivery time, and
+   measured how good it really is — overall, and broken down by traffic
+   level. (Indrashish)
+5. We exported just the trained brain's numbers and rebuilt its math in
+   plain NumPy, so the app never needs to carry TensorFlow around, then
+   added input guarding, confidence bands and schema checking on top.
+   (Nilarko)
+6. We also built a transparent non-AI baseline calculator, an auditable
+   rider-fairness score, and a dispatcher that assigns each order to the
+   least-loaded rider. (Nilarko)
+7. We built a real, clickable app with eight screens and a proper design
+   system around all of it. (Rudra)
+8. We tested the whole thing — 158 automated checks including a headless
+   run of the real app — and that's what found most of our bugs. (Urbi)
+9. We turned the model and our decisions into an auto-generated slide deck
+   that reads its numbers from the model's own metadata. (Adwitiya)
+
+
+-------------------------------------------------------------------------------
+PART 4 — HOW TO RUN THIS ON YOUR OWN PC
+-------------------------------------------------------------------------------
+
+WINDOWS (the real hackathon way — no typing required):
+  1. Unzip the FeedForward folder anywhere.
+  2. Double-click "run.bat".
+  3. First time needs internet for about a minute (installs 4 small
+     packages). After that it opens in your browser automatically, every
+     time, in seconds.
+  4. Close the black terminal window to stop the app.
+
+MAC / LINUX (for practicing beforehand):
+  1. Open a terminal in the FeedForward folder.
+  2. Run:  ./run.sh
+  …or do it manually:
+     python3 -m venv .venv && source .venv/bin/activate
+     pip install -r requirements.txt
+     streamlit run frontend/app.py
+
+TO RUN THE TESTS (any OS):
+  pip install -r requirements-dev.txt
+  pytest
+  → 158 tests, about 27 seconds. All should pass.
+
+RETRAINING THE MODEL (only Indrashish really needs this):
+  1. pip install -r requirements-dev.txt
+  2. jupyter nbconvert --to notebook --execute --inplace model/train_model.ipynb
+  3. This regenerates weights.npz, meta.json and architecture.png together.
+     The app picks up the new brain next time it starts — and if the files
+     somehow end up mismatched, it refuses to start rather than predicting
+     garbage.
+
+TO REBUILD THE SLIDE DECK:
+  python ppt/build_pptx.py
+
+
+-------------------------------------------------------------------------------
+PART 5 — QUICK ANSWERS TO QUESTIONS A JUDGE MIGHT ASK
+-------------------------------------------------------------------------------
+
+Q: "Is this real data?"
+A: Yes — 45,584 real Zomato delivery orders from Kaggle, with actual
+   recorded delivery times, not made up.
+
+Q: "How accurate is it?"
+A: Typically within 3.6 minutes, median error 11.7%, R² 0.766, and it
+   lands within 10 minutes 97% of the time — all measured on 6,838 orders
+   the model never saw during training. Accuracy varies by conditions, so
+   the app shows the figure for whichever traffic level you picked rather
+   than one blended number.
+
+Q: "Why not just use a paid AI API?"
+A: Works fully offline, free, forever — no API key, no subscription. We
+   trained our own small model instead.
+
+Q: "Does the app need TensorFlow to run?"
+A: No — training needs it once, offline. The shipped app replays the
+   trained network's math with only NumPy.
+
+Q: "What's the Rider Fairness Score based on?"
+A: A simple, transparent weighted formula (concurrent orders + vehicle
+   condition + distance + traffic), not another AI model — a safety flag
+   should be easy to audit, not another black box. It also shows which
+   factor contributed most, because a high score from stacked orders needs
+   a different fix than a high score from a bad vehicle.
+
+Q: "Why does the Quick Calculator sometimes disagree with the AI model?"
+A: On purpose — they use different information, and comparing them is the
+   feature. Be honest about the size of it though: the formula scales
+   travel time linearly with distance, and the model barely moves with
+   distance at all, because distance is a weak predictor in this dataset.
+   By 15 km the formula is about half an hour more pessimistic. For long
+   routes we'd trust the formula more, since the model has little real
+   signal out there.
+
+Q: "Did anything go wrong while building it?"
+A: Eight things — see Part 0.5. Three would have been visible live on
+   stage: both landing-page buttons crashed, there was a fake delivery
+   hotspot in the Atlantic Ocean, and raw HTML was printing in a grey code
+   box on every screen. The most embarrassing one is that our headline
+   fairness feature was being computed from random numbers.
+
+Q: "What did your tests NOT catch?"
+A: Good question, and we have a real answer. The raw-HTML bug (Part 0.5,
+   Bug 8) passed every automated test we had, because the element WAS on
+   the page with the right content — it just rendered as text instead of
+   as HTML. A test can check the right things are present; it can't check
+   the page looks right. We only found it by opening the app in a browser
+   and looking at it.
+
+Q: "How do you know you didn't break something while fixing those?"
+A: 158 automated tests, about 27 seconds. They cover every backend module
+   and boot the real app headlessly through all eight screens. Several
+   exist purely to make sure the bugs in Part 0.5 can't come back.
+
+Q: "What would you do next?"
+A: Add hour-of-day as a model feature. Our own Rush Hours screen shows a
+   12-minute swing between the quietest hour and the dinner rush, which is
+   bigger than several features the model already uses — and we're not
+   using it. We'd rather point at that ourselves than have someone find it.
+
+Q: "Is this actually useful, or just a cool demo?"
+A: Every feature maps to a real problem: accurate ETAs reduce wasted food
+   from late deliveries, the fairness score targets a real gig-worker
+   safety issue, and the hotspot map surfaces underserved zones instead of
+   hiding them in a citywide average. What makes it more than a demo is
+   that it's honest about its limits — it clamps inputs it can't handle,
+   shows a confidence range instead of a single false number, and tells
+   you where it stops being reliable.
+
+
+-------------------------------------------------------------------------------
+PART 6 — MINI GLOSSARY
+-------------------------------------------------------------------------------
+
+Dataset        = a big table of real data, our raw fuel
+Neural network = a small program loosely inspired by brain cells, trained
+                 by example instead of programmed rule-by-rule
+Training       = showing the network thousands of real examples so it
+                 learns to predict good answers on its own
+Weights        = the numbers the network learns — its "memory"
+Inference      = using an already-trained network to make a NEW prediction
+Feature        = one piece of input info the model uses (e.g. distance)
+Haversine formula = the math for real distance between two GPS points on
+                 a sphere (i.e., Earth) — not a straight ruler-line distance
+Frontend       = what the user sees and clicks
+Backend        = the engine room doing the real work
+Repository (repo) = the project folder as tracked by Git/GitHub
+Confidence band= the honest range around a prediction, from how wrong the
+                 model usually is
+Regression test= a test written specifically so a bug you already fixed can
+                 never quietly come back
+Partial dependence = checking how one input affects the answer by averaging
+                 over lots of real rows, instead of at one example
+MAE            = mean absolute error — "on average we're off by this much"
+R²             = how much of the variation in the data the model explains;
+                 1.0 is perfect, ours is 0.766
+Null island    = (0, 0) latitude/longitude — not a place, just what a
+                 missing coordinate looks like if nobody checks
+
+===============================================================================
+ Two real projects, same honest method both times: real data, real bugs
+ found and fixed, real engineering decisions explained plainly. You don't
+ need a memorized script — you need to understand why you built it the
+ way you did. Good luck tomorrow! 🍔
+===============================================================================

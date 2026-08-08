@@ -1,0 +1,28 @@
+# --- python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# --- jupyter ---
+.ipynb_checkpoints/
+
+# --- streamlit ---
+.streamlit/secrets.toml
+
+# --- os junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- our own scratch/build stuff (not needed in the repo) ---
+scratch/
+vendor/
+*.zip
+build/
+dist/
+
+# keep the actual model artifacts + data though, we WANT those committed

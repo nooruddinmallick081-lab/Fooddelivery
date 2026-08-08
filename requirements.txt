@@ -1,0 +1,8 @@
+# runtime deps only — same story as BeejBank: no tensorflow, no scikit-learn,
+# no jupyter. The trained model is replayed with plain numpy
+# (see backend/inference.py), so none of the training-time stuff needs to
+# travel with the portable build.
+streamlit==1.61.1
+pandas==3.0.5
+numpy==2.5.1
+plotly==6.9.0
